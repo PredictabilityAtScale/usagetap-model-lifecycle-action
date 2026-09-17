@@ -1,0 +1,32 @@
+name: Model lifecycle
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check model lifecycle
+        uses: YOUR_ORG/usagetap-model-lifecycle-action@v1
+        with:
+          paths: |
+            src
+            config
+          exclude: |
+            **/*.generated.ts
+            **/fixtures/**
+          # Add runtime-computed or Azure deployment mappings explicitly.
+          models: |
+            openai/gpt-4-turbo
+          fail-on: replace
+          unknown-policy: warn

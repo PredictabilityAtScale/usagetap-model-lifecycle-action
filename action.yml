@@ -1,0 +1,61 @@
+name: UsageTap Model Lifecycle Check
+description: Find AI model keys in a repository and fail CI when UsageTap recommends replacement.
+author: UsageTap
+
+branding:
+  icon: alert-triangle
+  color: purple
+
+inputs:
+  paths:
+    description: Comma or newline separated files/directories to scan, relative to the repository root.
+    required: false
+    default: .
+  exclude:
+    description: Additional comma or newline separated path globs to skip.
+    required: false
+    default: ""
+  models:
+    description: Explicit provider-qualified model keys to check in addition to discovered keys.
+    required: false
+    default: ""
+  fail-on:
+    description: Comma separated actions that fail the check. Supported values are replace, review, and never.
+    required: false
+    default: replace
+  unknown-policy:
+    description: How to handle UNKNOWN keys: warn, error, or ignore.
+    required: false
+    default: warn
+  api-error-policy:
+    description: How to handle network, API, or degraded responses: error or warn.
+    required: false
+    default: error
+  max-file-bytes:
+    description: Maximum size of any scanned file.
+    required: false
+    default: "1048576"
+  max-models:
+    description: Maximum number of unique model keys sent to the API.
+    required: false
+    default: "100"
+  api-base-url:
+    description: UsageTap API base URL.
+    required: false
+    default: https://api.usagetap.com
+
+outputs:
+  models-found:
+    description: Number of unique model keys checked.
+  replace-count:
+    description: Number of keys with action REPLACE.
+  review-count:
+    description: Number of keys with action REVIEW.
+  keep-count:
+    description: Number of keys with action KEEP.
+  results-json:
+    description: Compact JSON array of lifecycle decisions.
+
+runs:
+  using: node24
+  main: dist/index.js
