@@ -28,6 +28,8 @@ test("finds common SDK, qualified, Bedrock, and Vertex forms", () => {
     "anthropic/claude-3-5-sonnet-20241022",
     "google/gemini-2.5-pro",
   ]);
+  assert.equal(refs.find((item) => item.raw.startsWith("anthropic.claude")).platform, "bedrock");
+  assert.equal(refs.find((item) => item.raw.startsWith("publishers/google")).platform, "vertex");
 });
 
 test("normalizes provider separators and cloud suffixes", () => {

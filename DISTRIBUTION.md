@@ -30,13 +30,14 @@ Publish both an immutable semantic-version tag and a convenient major tag:
 
 For every release:
 
-1. Run the repository test matrix.
-2. Test the action in a separate fixture repository against the production UsageTap endpoint.
-3. Confirm `action.yml`, annotations, job summary, outputs, retries, failure policies, and adversarial scanner tests.
-4. Enable GitHub private vulnerability reporting and confirm the UsageTap privacy policy, terms, support page, and security-reporting path are current.
-5. Create the immutable version tag and GitHub Release.
-6. Move the major tag only after the release is verified.
-7. Include the exact commit SHA in the release notes for users who pin dependencies.
+1. Update source, tests, `action.yml`, README, and copyable examples together.
+2. Run `npm run build`, `npm run check-dist`, and the repository test matrix on every supported operating system.
+3. Run the live action smoke test against the production UsageTap endpoint and verify a known source-backed transition includes its evidence URL and checked date.
+4. Confirm `action.yml`, annotations, job summary, every output, retries, failure policies, issue deduplication, and adversarial scanner tests.
+5. Enable GitHub private vulnerability reporting and confirm the UsageTap privacy policy, terms, support page, and security-reporting path are current.
+6. Create the immutable version tag and GitHub Release, then validate that immutable tag.
+7. Move the major tag only after the immutable version tag passes validation.
+8. Include the exact commit SHA in the release notes for users who pin dependencies.
 
 ## GitHub Marketplace
 

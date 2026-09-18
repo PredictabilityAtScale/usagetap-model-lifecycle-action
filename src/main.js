@@ -1,6 +1,7 @@
 "use strict";
 
 const { annotation, appendSummary, setOutput } = require("./github.js");
+const { normalizeIssuePolicy, syncMigrationIssues } = require("./issues.js");
 const { loadModelFiles } = require("./model-files.js");
 const { normalizeCandidate, scanRepository, splitList } = require("./scanner.js");
 const { lookupModels } = require("./usagetap.js");
@@ -24,6 +25,18 @@ function normalizeFailOn(value) {
   if (items.has("never")) return new Set();
   if (items.has("both")) return new Set(["replace", "review"]);
   return items;
+}
+
+function parseNonNegativeInteger(name, fallback) {
+  const raw = input(name, String(fallback));
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`${name} must be a non-negative safe integer (0 or greater).`);
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`${name} must be a non-negative safe integer (0 or greater).`);
+  }
+  return value;
 }
 
 function markdownCell(value) {
@@ -72,8 +85,14 @@ async function run() {
   const failOn = normalizeFailOn(input("fail-on", "replace"));
   const unknownPolicy = input("unknown-policy", "warn").toLowerCase();
   const apiErrorPolicy = input("api-error-policy", "error").toLowerCase();
+  const minimumModels = parseNonNegativeInteger("minimum-models", 0);
+  const issuePolicy = normalizeIssuePolicy(input("issue-policy", "off"));
+  const githubToken = input("github-token");
   if (!new Set(["warn", "error", "ignore"]).has(unknownPolicy)) throw new Error("unknown-policy must be warn, error, or ignore.");
   if (!new Set(["warn", "error"]).has(apiErrorPolicy)) throw new Error("api-error-policy must be error or warn.");
+  if (issuePolicy !== "off" && !githubToken) {
+    throw new Error("github-token is required when issue-policy enables migration issues; grant the workflow issues: write.");
+  }
 
   const modelFiles = await loadModelFiles({
     root: workspace,
@@ -106,6 +125,12 @@ async function run() {
   const maxModels = parsePositiveInteger("max-models", 100);
   if (modelKeys.length > maxModels) throw new Error(`Found ${modelKeys.length} model keys, above max-models=${maxModels}. Narrow paths/exclude or raise the limit.`);
 
+  const zeroModelsMessage = "No model keys were found. Broaden paths, remove an over-broad exclude, or declare runtime/deployment aliases in models.include or models.";
+  if (modelKeys.length === 0) {
+    annotation("warning", zeroModelsMessage, {}, "UsageTap found zero models");
+  }
+  const minimumFailure = modelKeys.length < minimumModels;
+
   process.stdout.write(`UsageTap: scanned ${scan.filesScanned} files and found ${modelKeys.length} unique model key(s).\n`);
   const lookups = await lookupModels(modelKeys, {
     baseUrl: input("api-base-url", "https://api.usagetap.com"),
@@ -122,6 +147,7 @@ async function run() {
     UNUSED_WAIVER: unusedWaivers.length,
   };
   const compactResults = [];
+  const issueFindings = [];
   let shouldFail = false;
   let errorLevelCount = 0;
 
@@ -186,6 +212,10 @@ async function run() {
       validUntil: decision.validUntil || null,
       ...waiverResult(waiver),
     });
+    issueFindings.push({
+      ...compactResults[compactResults.length - 1],
+      locations,
+    });
   }
 
   for (const waiver of unusedWaivers) {
@@ -214,9 +244,23 @@ async function run() {
   const unusedWaiverRows = unusedWaivers.map((waiver) => (
     `| \`${markdownCell(waiver.modelKey)}\` | ${markdownCell(waiver.expires)} | ${markdownCell(waiver.reason)} |`
   ));
+  const platforms = new Set(scan.occurrences.map((occurrence) => occurrence.platform).filter(Boolean));
+  const platformNotes = [];
+  if (platforms.has("bedrock")) {
+    platformNotes.push("AWS Bedrock Anthropic IDs were normalized to Anthropic model keys. Evidence describes the underlying Anthropic lifecycle; it does not verify Bedrock region availability, aliases, or platform-specific retirement dates.");
+  }
+  if (platforms.has("vertex")) {
+    platformNotes.push("Vertex publisher paths were normalized to underlying provider model keys. Evidence describes the underlying provider lifecycle; it does not verify Vertex AI region availability, aliases, or platform-specific retirement dates.");
+  }
   appendSummary([
     "## UsageTap model lifecycle check",
     "",
+    ...(modelKeys.length === 0 ? [
+      "> [!WARNING]",
+      `> **${zeroModelsMessage}**`,
+      ...(minimumFailure ? [`> This run fails because \`minimum-models\` is ${minimumModels}.`] : []),
+      "",
+    ] : []),
     `Scanned **${scan.filesScanned}** files, skipped **${scan.filesSkipped}**, and checked **${modelKeys.length}** unique model keys.`,
     "",
     `Decisions: **${counts.KEEP} KEEP**, **${counts.REVIEW} REVIEW**, **${counts.REPLACE} REPLACE**, **${counts.UNKNOWN} unknown**, **${counts.DEGRADED} degraded**, **${counts.ERROR} API errors**, **${counts.WAIVED} waived**.`,
@@ -233,6 +277,12 @@ async function run() {
       "| Model key | Expires | Reason |",
       "|---|---|---|",
       ...unusedWaiverRows,
+    ] : []),
+    ...(platformNotes.length ? [
+      "",
+      "### Platform-normalized discoveries",
+      "",
+      ...platformNotes.map((note) => `- ${note}`),
     ] : []),
     "",
     "UsageTap never changes repository configuration. Review replacements against your workload before applying them.",
@@ -251,10 +301,27 @@ async function run() {
   setOutput("files-skipped", String(scan.filesSkipped));
   setOutput("results-json", JSON.stringify(compactResults));
 
+  await syncMigrationIssues(issueFindings, {
+    policy: issuePolicy,
+    token: githubToken,
+    label: input("issue-label", "model-lifecycle"),
+    assignees: splitList(input("issue-assignees")),
+    repository: process.env.GITHUB_REPOSITORY,
+    apiBaseUrl: process.env.GITHUB_API_URL || "https://api.github.com",
+  });
+
+  if (minimumFailure) {
+    shouldFail = true;
+    process.stdout.write(`UsageTap: failing because ${modelKeys.length} model key(s) were found, below minimum-models=${minimumModels}.\n`);
+  }
   if (shouldFail) {
+    if (errorLevelCount === 0) {
+      process.exitCode = 1;
+      return;
+    }
     process.stdout.write(`UsageTap: failing because ${errorLevelCount} model check(s) matched an error policy (${counts.REPLACE} replace, ${counts.REVIEW} review, ${counts.UNKNOWN} unknown, ${counts.DEGRADED} degraded, ${counts.ERROR} API error).\n`);
     process.exitCode = 1;
   }
 }
 
-module.exports = { decisionMessage, normalizeFailOn, run };
+module.exports = { decisionMessage, normalizeFailOn, parseNonNegativeInteger, run };

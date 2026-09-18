@@ -70,6 +70,8 @@ test("annotates a deprecated key, writes outputs, and fails the job", async (con
   const summary = await fs.readFile(summaryFile, "utf8");
   assert.match(summary, /openai\/gpt-4-turbo/);
   assert.match(summary, /\[OpenAI API deprecations\]\(https:\/\/example\.test\/openai-deprecations\)/);
+  assert.match(summary, /checked 2026-09-17/);
+  assert.match(await fs.readFile(outputFile, "utf8"), /"lifecycleCheckedAt":"2026-09-17"/);
 });
 
 test("reports unknown and degraded decisions according to policy", async (context) => {
@@ -94,7 +96,10 @@ test("reports unknown and degraded decisions according to policy", async (contex
     }));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  context.after(() => new Promise((resolve) => server.close(resolve)));
+  context.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
 
   const address = server.address();
   const result = await runAction({
@@ -144,7 +149,10 @@ test("audits declared models and reports lifecycle waivers without hiding decisi
     }));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  context.after(() => new Promise((resolve) => server.close(resolve)));
+  context.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
 
   const address = server.address();
   const result = await runAction({
@@ -170,4 +178,138 @@ test("audits declared models and reports lifecycle waivers without hiding decisi
   assert.match(summary, /DEPRECATED \/ REPLACE \/ WAIVED/);
   assert.match(summary, /Compatibility fixture; UT-431/);
   assert.match(summary, /### Unused waivers/);
+});
+
+test("zero discoveries warn and succeed by default with a prominent summary callout", async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "usagetap-action-zero-"));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  await fs.writeFile(path.join(workspace, "app.js"), "const answer = 42;\n", "utf8");
+  const outputFile = path.join(workspace, "outputs.txt");
+  const summaryFile = path.join(workspace, "summary.md");
+
+  const result = await runAction({
+    ...process.env,
+    GITHUB_WORKSPACE: workspace,
+    GITHUB_OUTPUT: outputFile,
+    GITHUB_STEP_SUMMARY: summaryFile,
+    INPUT_PATHS: ".",
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /::warning .*UsageTap found zero models.*Broaden paths.*models\.include or models/);
+  assert.match(await fs.readFile(outputFile, "utf8"), /models-found.*\n0\n/s);
+  assert.match(await fs.readFile(summaryFile, "utf8"), /> \[!WARNING\][\s\S]*No model keys were found/);
+});
+
+test("minimum-models fails after writing every output when discovery is empty", async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "usagetap-action-minimum-zero-"));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  await fs.writeFile(path.join(workspace, "app.js"), "const answer = 42;\n", "utf8");
+  const outputFile = path.join(workspace, "outputs.txt");
+  const summaryFile = path.join(workspace, "summary.md");
+
+  const result = await runAction({
+    ...process.env,
+    GITHUB_WORKSPACE: workspace,
+    GITHUB_OUTPUT: outputFile,
+    GITHUB_STEP_SUMMARY: summaryFile,
+    INPUT_PATHS: ".",
+    "INPUT_MINIMUM-MODELS": "1",
+  });
+
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stdout, /::warning .*UsageTap found zero models/);
+  assert.match(result.stdout, /below minimum-models=1/);
+  const outputs = await fs.readFile(outputFile, "utf8");
+  for (const name of [
+    "models-found", "replace-count", "review-count", "keep-count", "unknown-count", "degraded-count",
+    "error-count", "waived-count", "unused-waiver-count", "files-scanned", "files-skipped", "results-json",
+  ]) assert.match(outputs, new RegExp(`${name}<<`));
+  assert.match(outputs, /models-found.*\n0\n/s);
+  assert.match(await fs.readFile(summaryFile, "utf8"), /This run fails because `minimum-models` is 1/);
+});
+
+test("one discovery satisfies minimum-models and follows normal policy", async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "usagetap-action-minimum-one-"));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  await fs.writeFile(path.join(workspace, "app.js"), `const model = "gpt-4o";\n`, "utf8");
+  const outputFile = path.join(workspace, "outputs.txt");
+  const summaryFile = path.join(workspace, "summary.md");
+  const server = http.createServer((_request, response) => {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ schemaVersion: 1, lifecycle: { status: "ACTIVE" }, action: "KEEP" }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  context.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
+
+  const result = await runAction({
+    ...process.env,
+    GITHUB_WORKSPACE: workspace,
+    GITHUB_OUTPUT: outputFile,
+    GITHUB_STEP_SUMMARY: summaryFile,
+    INPUT_PATHS: ".",
+    "INPUT_MINIMUM-MODELS": "1",
+    "INPUT_API-BASE-URL": `http://127.0.0.1:${server.address().port}`,
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /zero models|below minimum-models/);
+  assert.match(await fs.readFile(outputFile, "utf8"), /keep-count.*\n1\n/s);
+});
+
+test("minimum-models rejects negative and non-integer configuration", async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "usagetap-action-invalid-minimum-"));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  await fs.writeFile(path.join(workspace, "app.js"), "const answer = 42;\n", "utf8");
+
+  for (const value of ["-1", "1.5", "9007199254740992"]) {
+    const result = await runAction({
+      ...process.env,
+      GITHUB_WORKSPACE: workspace,
+      INPUT_PATHS: ".",
+      "INPUT_MINIMUM-MODELS": value,
+    });
+    assert.equal(result.code, 1, `value ${value} should fail`);
+    assert.match(result.stdout, /minimum-models must be a non-negative safe integer \(0 or greater\)/);
+  }
+});
+
+test("summary explains normalized cloud-platform coverage without sending platform IDs", async (context) => {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "usagetap-action-platforms-"));
+  context.after(() => fs.rm(workspace, { recursive: true, force: true }));
+  await fs.writeFile(path.join(workspace, "models.js"), [
+    `const bedrock = "anthropic.claude-3-5-sonnet-20241022-v2:0";`,
+    `const vertex = "publishers/google/models/gemini-2.5-flash";`,
+  ].join("\n"), "utf8");
+  const outputFile = path.join(workspace, "outputs.txt");
+  const summaryFile = path.join(workspace, "summary.md");
+  const requested = [];
+  const server = http.createServer((request, response) => {
+    requested.push(request.url);
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ schemaVersion: 1, lifecycle: { status: "ACTIVE" }, action: "KEEP" }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  context.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
+
+  const result = await runAction({
+    ...process.env,
+    GITHUB_WORKSPACE: workspace,
+    GITHUB_OUTPUT: outputFile,
+    GITHUB_STEP_SUMMARY: summaryFile,
+    INPUT_PATHS: ".",
+    "INPUT_API-BASE-URL": `http://127.0.0.1:${server.address().port}`,
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.ok(requested.every((url) => !url.includes("publishers") && !url.includes("anthropic.claude")));
+  const summary = await fs.readFile(summaryFile, "utf8");
+  assert.match(summary, /Bedrock region availability/);
+  assert.match(summary, /Vertex AI region availability/);
 });

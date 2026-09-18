@@ -16,13 +16,15 @@ The default policy is intentionally conservative:
 
 The public lookup does not require an API key. The action sends the configured endpoint only normalized model keys such as `openai/gpt-4-turbo`; it does not send source files, prompts, credentials, or surrounding configuration. See [Privacy and network access](#privacy-and-network-access).
 
-## Example workflow
+## Advisory workflow
 
 ```yaml
-name: Model lifecycle
+name: Model lifecycle (advisory)
 
 on:
   pull_request:
+  push:
+    branches: [main]
   schedule:
     - cron: "17 9 * * 1"
   workflow_dispatch:
@@ -37,31 +39,72 @@ jobs:
       - uses: actions/checkout@v7
       - uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
         with:
-          paths: |
-            src
-            config
-          fail-on: replace
+          paths: .
+          fail-on: never
           unknown-policy: warn
+          api-error-policy: warn
 ```
 
-Run it on pull requests **and** on a schedule. A provider can deprecate a model even when the repository has not changed.
+`fail-on: never` only disables lifecycle-decision failures. It does not make API failures or degraded responses advisory; `api-error-policy: warn` is also required for a fully advisory check.
+
+## Enforced workflow
+
+```yaml
+name: Model lifecycle (enforced)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
+        with:
+          paths: .
+          fail-on: replace
+          unknown-policy: warn
+          api-error-policy: error
+          minimum-models: 1
+```
+
+Repository events catch model-key changes in code. The weekly schedule catches a provider deprecation or retirement that can break an otherwise untouched application. Pushes run the merged result on this repository's default `main` branch; change the branch name if your default differs.
 
 For production, pin this action and `actions/checkout` to verified full commit SHAs. Moving major tags such as `@v1` are convenient, but a full SHA is the immutable option.
 
-See [`examples/model-lifecycle.yml`](examples/model-lifecycle.yml) for a fuller copyable workflow.
+See the copyable [enforced](examples/model-lifecycle.yml) and [advisory](examples/model-lifecycle-advisory.yml) workflows.
+
+## Decision timing
+
+- `KEEP`: the exact, source-backed lifecycle is `ACTIVE`.
+- `REVIEW`: the exact key is unknown or the available evidence is insufficient.
+- `REPLACE`: the exact key is `DEPRECATED` or `RETIRED`, regardless of the number of days until shutdown.
+
+There is no configurable advance-warning window. `REVIEW` does not automatically become `REPLACE` at a date threshold. Enforcement is controlled by `fail-on` and by reasoned, expiring waivers.
 
 ## What the scanner recognizes
 
 - Provider-qualified keys such as `openai/gpt-4-turbo`, `anthropic/claude-3-5-sonnet-20241022`, and `google/gemini-2.5-pro`, including unfamiliar model-family names that should be audited as unknown
 - Quoted OpenAI-family, Claude-family, and Gemini-family model IDs in JS/TS, Python, JSON, YAML, TOML, environment files, and other common configuration/code formats
 - Unquoted model assignments commonly used in environment, YAML, and TOML files, such as `OPENAI_MODEL=gpt-4o` and `model: claude-sonnet-4-6`
-- AWS Bedrock Anthropic IDs such as `anthropic.claude-...-v2:0`, normalized to the underlying Anthropic key
-- Vertex publisher paths such as `publishers/google/models/gemini-...`
+- AWS Bedrock Anthropic IDs such as `anthropic.claude-...-v2:0`, normalized to an Anthropic model key
+- Vertex publisher paths such as `publishers/google/models/gemini-...`, normalized to a Google model key
 - Explicit keys supplied through `models.include` or the `models` input
 
 The scanner skips common dependency/build directories, binary files, Markdown, lockfiles, and files larger than 1 MiB by default. `exclude` supports `*`, `?`, and `**` globstars using repository-relative `/`-separated paths.
 
 ## Important limitation
+
+Discovery and lifecycle authority are different. For normalized Bedrock and Vertex forms, the returned evidence covers the underlying provider lifecycle. It does not verify AWS Bedrock or Vertex AI region availability, platform aliases, or platform-specific retirement dates. When the scanner sees either platform form, the job summary states this limitation; the original platform identifier remains local scanner metadata and is not sent to UsageTap.
 
 No regex can recover a model from a value that is computed at runtime or hidden behind an arbitrary deployment alias. Azure OpenAI deployment names are the common example. Declare those models in a root `models.include` file:
 
@@ -80,7 +123,13 @@ with:
     anthropic/claude-sonnet-4-6
 ```
 
-Keep explicit declarations under review: the action audits the provider/model key you supply but cannot prove that an arbitrary deployment alias still points to that model.
+Azure and other arbitrary deployment aliases require explicit declarations. Keep those declarations under review: the action audits the provider/model key you supply but cannot prove which model an alias currently targets.
+
+## Zero-model coverage
+
+Every zero-model run emits a warning annotation and a prominent job-summary callout, even when `minimum-models` is `0`. Remediate zero coverage by broadening `paths`, removing an over-broad `exclude`, or declaring runtime/deployment aliases in `models.include` or `models`.
+
+Set `minimum-models: 1` (or a higher expected floor) to fail when discovery and explicit declarations fall below that count. The action still writes `models-found: 0` and all other outputs before failing. The input accepts only non-negative safe integers; `0` disables the minimum, not the warning.
 
 ## Lifecycle waivers
 
@@ -115,6 +164,11 @@ Both files are optional. Override their locations with `include-file` and `ignor
 | `api-error-policy` | `error` | `error` or `warn` |
 | `max-file-bytes` | `1048576` | Per-file scan limit |
 | `max-models` | `100` | Maximum unique keys per run |
+| `minimum-models` | `0` | Minimum unique keys required; `0` disables the minimum but not the zero-model warning |
+| `issue-policy` | `off` | `off`, `replace`, or `review-and-replace` |
+| `github-token` | empty | Token with `issues: write`, required only when issue creation is enabled |
+| `issue-label` | `model-lifecycle` | Label applied to migration issues when it exists |
+| `issue-assignees` | empty | Optional comma/newline separated GitHub owners |
 | `api-base-url` | `https://api.usagetap.com` | Override for testing or self-hosted routing |
 
 ## Outputs
@@ -126,6 +180,42 @@ The action exposes:
 - Machine-readable decisions: `results-json`
 
 A Markdown decision table is written to the job summary, including a link to the provider lifecycle evidence when the API supplies one. `results-json` contains lifecycle status, action, shutdown date, official replacement, computed recommendation, lifecycle source label/URL/checked date, recommendation source, degradation state, decision ID, validity time, and matching waiver metadata.
+
+## Optional migration issues
+
+Issue creation is off by default. To track `REPLACE` findings, opt in and grant only that workflow the required permission:
+
+```yaml
+permissions:
+  contents: read
+  issues: write
+
+steps:
+  - uses: actions/checkout@v7
+  - uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
+    with:
+      paths: .
+      issue-policy: replace
+      github-token: ${{ github.token }}
+      issue-label: model-lifecycle
+      issue-assignees: platform-team,ai-owners
+```
+
+`review-and-replace` tracks both `REVIEW` and `REPLACE`. Each issue contains the model key, source locations, lifecycle state and shutdown date, provider evidence and checked date, provider-designated replacement, computed/cross-provider recommendation, waiver state, and migration guidance.
+
+The action deduplicates open issues with an exact hidden marker such as `<!-- usagetap-model-lifecycle:openai/gpt-4-turbo -->`. It creates one issue when none exists and updates the existing issue only when the UsageTap decision ID changes. API errors and degraded responses never create migration issues because they are service-health findings, not lifecycle facts. The action also never auto-closes an issue when a model disappears from a scan; path, configuration, or scanner changes can cause disappearance.
+
+## Operating scheduled findings
+
+Assign a team to own this workflow and route scheduled-run failures to that team through your normal GitHub Actions notification or incident-routing setup. A scheduled failure does not appear on a pull request, so it needs an explicit operational owner.
+
+When a scheduled run finds a migration:
+
+1. Open or update the tracked migration issue.
+2. Verify the provider evidence.
+3. Test the provider-designated replacement against representative requests.
+4. Evaluate computed or cross-provider recommendations separately.
+5. Use a reasoned, expiring waiver only when migration cannot complete before the enforcement date.
 
 ## Privacy and network access
 
@@ -141,7 +231,7 @@ npm test
 
 The action uses GitHub's Node 24 runtime and Node built-ins only, so there is no dependency bundle to audit or update. Tests include scanner formats, adversarial input, path exclusions, API schema validation and retries, policy handling, annotations, summaries, and outputs.
 
-To exercise the checked-out action against the live public endpoint, push a branch and manually run the **Test action** workflow. Its `live-action-smoke` job uses `uses: ./`, audits the example model, and verifies that discovery produced at least one result without failing on the model's lifecycle decision.
+To exercise the checked-out action against the live public endpoint after the corresponding UsageTap API release, push a branch and manually run the **Test action** workflow. Its `live-action-smoke` job uses `uses: ./` and asserts that the known source-backed transition includes both a provider evidence URL and checked date in `results-json`.
 
 ## Support and security
 
@@ -158,5 +248,5 @@ The action source code and documentation are licensed under the [MIT License](LI
 1. Confirm the GitHub test matrix passes on Ubuntu, Windows, and macOS.
 2. Add integration fixtures for every provider/model format you officially support.
 3. Enable GitHub private vulnerability reporting and confirm the linked privacy policy, terms, support channel, and security-reporting channel are current.
-4. Tag an immutable release such as `v1.0.0`, then move a `v1` major tag to that commit.
+4. Tag an immutable release such as `v1.0.0`, validate that tag, and only then move the `v1` major tag to the validated commit.
 5. Publish the action in GitHub Marketplace after validating `action.yml` and the README.

@@ -95,23 +95,23 @@ function extractModelRefs(text, file) {
   const found = [];
   const seen = new Set();
   const offsets = newlineOffsets(text);
-  const add = (modelKey, index, raw) => {
+  const add = (modelKey, index, raw, platform = null) => {
     if (!modelKey) return;
     const line = lineNumberAt(offsets, index);
     const identity = `${modelKey}:${line}`;
     if (seen.has(identity)) return;
     seen.add(identity);
-    found.push({ modelKey, file, line, raw });
+    found.push({ modelKey, file, line, raw, ...(platform ? { platform } : {}) });
   };
 
   for (const match of text.matchAll(QUALIFIED_MODEL_RE)) {
     add(normalizeCandidate(`${match[1]}/${match[2]}`), match.index, match[0]);
   }
   for (const match of text.matchAll(VERTEX_MODEL_RE)) {
-    add(normalizeCandidate(match[2], match[1]), match.index, match[0]);
+    add(normalizeCandidate(match[2], match[1]), match.index, match[0], "vertex");
   }
   for (const match of text.matchAll(BEDROCK_ANTHROPIC_RE)) {
-    add(normalizeCandidate(match[1], "anthropic"), match.index, match[0]);
+    add(normalizeCandidate(match[1], "anthropic"), match.index, match[0], "bedrock");
   }
   for (const match of text.matchAll(ASSIGNED_MODEL_RE)) {
     const valueOffset = match[0].lastIndexOf(match[2]);
