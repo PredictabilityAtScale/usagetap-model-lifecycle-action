@@ -32,11 +32,11 @@ inputs:
     required: false
     default: replace
   unknown-policy:
-    description: How to handle UNKNOWN keys: warn, error, or ignore.
+    description: "How to handle UNKNOWN keys: warn, error, or ignore."
     required: false
     default: warn
   api-error-policy:
-    description: How to handle network, API, or degraded responses: error or warn.
+    description: "How to handle network, API, or degraded responses: error or warn."
     required: false
     default: error
   max-file-bytes:
