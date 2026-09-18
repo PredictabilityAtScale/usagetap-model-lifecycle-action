@@ -249,8 +249,19 @@ The action source code and documentation are licensed under the [MIT License](LI
 
 ## Before publishing
 
-1. Confirm the GitHub test matrix passes on Ubuntu, Windows, and macOS.
-2. Add integration fixtures for every provider/model format you officially support.
-3. Enable GitHub private vulnerability reporting and confirm the linked privacy policy, terms, support channel, and security-reporting channel are current.
-4. Tag an immutable release such as `v1.0.0`, validate that tag, and only then move the `v1` major tag to the validated commit.
-5. Publish the action in GitHub Marketplace after validating `action.yml` and the README.
+- TODO: Confirm the GitHub test matrix passes on Ubuntu, Windows, and macOS. The matrix covers Node 20 and Node 24 on all three operating systems. Repeat this check for the exact commit used by each release.
+- TODO: Add end-to-end integration fixtures for every supported discovery path. Use a small fixture repository under `tests/fixtures/` that covers:
+  - OpenAI, Anthropic, and Google provider-qualified keys
+  - quoted model IDs and unquoted assignments in JavaScript/TypeScript, Python, JSON, YAML, TOML, and environment files
+  - AWS Bedrock Anthropic IDs and Vertex publisher paths
+  - explicit `models` input and `models.include` declarations for Azure or other runtime aliases
+
+  Run the fixture repository through `dist/index.js` with a local mock API, then assert the normalized request keys, source locations, annotations, summary, and `results-json`. Keep scanner-only edge cases in `tests/scanner.test.js`; these fixtures should prove the complete action path.
+- TODO: Publish the action in GitHub Marketplace:
+  1. Run `npm test` and the manual **Test action** smoke job against the exact release commit.
+  2. Confirm the public repository has one root `action.yml`, its action name is unique, its branding is supported, and every documented input and output matches the metadata.
+  3. Open `action.yml` on GitHub, choose **Draft a release**, select **Publish this Action to the GitHub Marketplace**, and resolve validation until GitHub reports **Everything looks good!**
+  4. Accept the GitHub Marketplace Developer Agreement if prompted, choose the most relevant categories, and publish the validated semantic-version release.
+  5. From a separate fixture repository, smoke-test both the immutable tag (for example, `@v1.1.0`) and the moving major tag (`@v1`).
+
+See GitHub's guides to [publishing actions in GitHub Marketplace](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace) and the [`action.yml` metadata syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/metadata-syntax).
