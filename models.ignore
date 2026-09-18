@@ -1,0 +1,3 @@
+# Expiring lifecycle waivers. Waived models are still looked up and reported.
+# Format: provider/model | YYYY-MM-DD | reason
+# openai/gpt-4-turbo | 2026-12-31 | Legacy compatibility fixture; tracked in UT-431

@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,3 +24,21 @@ jobs:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
       - run: npm test
+
+  live-action-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Audit fixture models with the local action
+        id: audit
+        uses: ./
+        with:
+          paths: examples
+          models: openai/gpt-4-turbo
+          fail-on: never
+          unknown-policy: ignore
+          api-error-policy: error
+      - name: Verify discovery produced an audit result
+        shell: bash
+        run: test "${{ steps.audit.outputs.models-found }}" -ge 1

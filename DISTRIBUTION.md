@@ -32,10 +32,11 @@ For every release:
 
 1. Run the repository test matrix.
 2. Test the action in a separate fixture repository against the production UsageTap endpoint.
-3. Confirm `action.yml`, annotations, job summary, outputs, retries, and failure policies.
-4. Create the immutable version tag and GitHub Release.
-5. Move the major tag only after the release is verified.
-6. Include the exact commit SHA in the release notes for users who pin dependencies.
+3. Confirm `action.yml`, annotations, job summary, outputs, retries, failure policies, and adversarial scanner tests.
+4. Enable GitHub private vulnerability reporting and confirm the UsageTap privacy policy, terms, support page, and security-reporting path are current.
+5. Create the immutable version tag and GitHub Release.
+6. Move the major tag only after the release is verified.
+7. Include the exact commit SHA in the release notes for users who pin dependencies.
 
 ## GitHub Marketplace
 
@@ -49,6 +50,8 @@ Suggested categories:
 Suggested listing copy:
 
 > Find OpenAI, Anthropic, and Google model keys in your repository. Fail CI before a deprecated or retired model reaches production, with source-backed replacements from UsageTap.
+
+The Marketplace description and README should link the [UsageTap Privacy Policy](https://usagetap.com/privacy), [Terms of Service](https://usagetap.com/terms), repository security policy, and support instructions. The repository code remains MIT-licensed; hosted API use is governed by the UsageTap terms.
 
 ## Other distribution surfaces
 

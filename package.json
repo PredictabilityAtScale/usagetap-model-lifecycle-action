@@ -2,8 +2,14 @@
   "name": "usagetap-model-lifecycle-action",
   "version": "0.1.0",
   "private": true,
-  "description": "GitHub Action example that checks discovered AI model keys against UsageTap.",
+  "description": "Find and audit repository AI model keys against UsageTap lifecycle decisions.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PredictabilityAtScale/usagetap-model-lifecycle-action.git"
+  },
+  "homepage": "https://github.com/PredictabilityAtScale/usagetap-model-lifecycle-action#readme",
+  "bugs": "https://github.com/PredictabilityAtScale/usagetap-model-lifecycle-action/issues",
   "engines": {
     "node": ">=20"
   },

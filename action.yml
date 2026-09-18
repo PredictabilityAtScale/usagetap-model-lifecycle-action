@@ -16,11 +16,19 @@ inputs:
     required: false
     default: ""
   models:
-    description: Explicit provider-qualified model keys to check in addition to discovered keys.
+    description: Explicit provider-qualified model keys to check in addition to discovered keys and models.include.
     required: false
     default: ""
+  include-file:
+    description: Optional repository-relative file containing provider-qualified model keys that discovery cannot see.
+    required: false
+    default: models.include
+  ignore-file:
+    description: Optional repository-relative file containing expiring, reasoned lifecycle waivers.
+    required: false
+    default: models.ignore
   fail-on:
-    description: Comma separated actions that fail the check. Supported values are replace, review, and never.
+    description: Comma separated actions that fail the check. Supported values are replace, review, both, and never.
     required: false
     default: replace
   unknown-policy:
@@ -53,6 +61,20 @@ outputs:
     description: Number of keys with action REVIEW.
   keep-count:
     description: Number of keys with action KEEP.
+  unknown-count:
+    description: Number of keys with lifecycle status UNKNOWN.
+  degraded-count:
+    description: Number of degraded API decisions.
+  error-count:
+    description: Number of model lookups that failed.
+  waived-count:
+    description: Number of audited models with a matching lifecycle waiver.
+  unused-waiver-count:
+    description: Number of waiver entries that did not match an audited model.
+  files-scanned:
+    description: Number of repository files scanned.
+  files-skipped:
+    description: Number of non-scannable, binary, or oversized files skipped.
   results-json:
     description: Compact JSON array of lifecycle decisions.
 

@@ -1,0 +1,3 @@
+# Provider-qualified models that static discovery cannot see.
+# One model per line. Inline comments are optional.
+# openai/gpt-4o # Azure production deployment
