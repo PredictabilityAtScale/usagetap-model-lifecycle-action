@@ -1,4 +1,4 @@
-name: Model lifecycle
+name: Model lifecycle (advisory)
 
 on:
   pull_request:
@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Check model lifecycle
+      - name: Check model lifecycle without blocking
         uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
         with:
           paths: .
-          fail-on: replace
+          fail-on: never
           unknown-policy: warn
-          api-error-policy: error
-          minimum-models: 1
+          # fail-on controls lifecycle decisions only; this makes API/degraded failures advisory too.
+          api-error-policy: warn

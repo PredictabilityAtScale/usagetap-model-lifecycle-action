@@ -91,7 +91,7 @@ async function lookupModel(modelKey, options = {}) {
     let responseForRetry;
     try {
       const response = await fetchImpl(url, {
-        headers: { Accept: "application/json", "User-Agent": "usagetap-model-lifecycle-action/1.0.0" },
+        headers: { Accept: "application/json", "User-Agent": "usagetap-model-lifecycle-action/1.1.0" },
         signal: controller.signal,
       });
       if (response.ok) {

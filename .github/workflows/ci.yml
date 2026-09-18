@@ -36,9 +36,13 @@ jobs:
         with:
           paths: examples
           models: openai/gpt-4-turbo
+          minimum-models: 1
           fail-on: never
           unknown-policy: ignore
           api-error-policy: error
-      - name: Verify discovery produced an audit result
+      - name: Verify source-backed transition evidence
         shell: bash
-        run: test "${{ steps.audit.outputs.models-found }}" -ge 1
+        env:
+          RESULTS_JSON: ${{ steps.audit.outputs.results-json }}
+        run: |
+          node -e 'const rows=JSON.parse(process.env.RESULTS_JSON); const row=rows.find((item)=>item.modelKey==="openai/gpt-4-turbo"); if (!row?.lifecycleSourceUrl || !row?.lifecycleCheckedAt) { throw new Error("Expected the known transition to include a provider source URL and checked date"); }'

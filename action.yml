@@ -47,6 +47,26 @@ inputs:
     description: Maximum number of unique model keys sent to the API.
     required: false
     default: "100"
+  minimum-models:
+    description: Minimum number of unique model keys required. Zero disables the minimum but not the zero-model warning.
+    required: false
+    default: "0"
+  issue-policy:
+    description: "Optional migration issue policy: off, replace, or review-and-replace."
+    required: false
+    default: off
+  github-token:
+    description: GitHub token with issues write permission, required only when issue-policy is enabled.
+    required: false
+    default: ""
+  issue-label:
+    description: Label applied to migration issues when the label exists.
+    required: false
+    default: model-lifecycle
+  issue-assignees:
+    description: Optional comma or newline separated GitHub usernames assigned to migration issues.
+    required: false
+    default: ""
   api-base-url:
     description: UsageTap API base URL.
     required: false
