@@ -44,6 +44,8 @@ jobs:
 
 Run it on pull requests **and** on a schedule. A provider can deprecate a model even when the repository has not changed.
 
+See [`examples/model-lifecycle.yml`](examples/model-lifecycle.yml) for a fuller copyable workflow.
+
 ## What the scanner recognizes
 
 - Provider-qualified keys such as `openai/gpt-4-turbo`, `anthropic/claude-3-5-sonnet-20241022`, and `google/gemini-2.5-pro`
