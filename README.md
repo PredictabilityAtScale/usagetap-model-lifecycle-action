@@ -254,13 +254,3 @@ To exercise the checked-out action against the live public endpoint after the co
 ## License
 
 The action source code and documentation are licensed under the [MIT License](LICENSE). UsageTap names and logos are trademarks of Predictability at Scale Inc; the MIT License does not grant permission to imply endorsement.
-
-## TODO
-
-- TODO: Add end-to-end integration fixtures for every supported discovery path. Use a small fixture repository under `tests/fixtures/` that covers:
-  - OpenAI, Anthropic, and Google provider-qualified keys
-  - quoted model IDs and unquoted assignments in JavaScript/TypeScript, Python, JSON, YAML, TOML, and environment files
-  - AWS Bedrock Anthropic IDs and Vertex publisher paths
-  - explicit `models` input and `models.include` declarations for Azure or other runtime aliases
-
-  Run the fixture repository through `dist/index.js` with a local mock API, then assert the normalized request keys, source locations, annotations, summary, and `results-json`. Keep scanner-only edge cases in `tests/scanner.test.js`; these fixtures should prove the complete action path.
