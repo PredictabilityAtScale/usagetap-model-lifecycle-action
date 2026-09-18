@@ -1,6 +1,6 @@
 {
   "name": "usagetap-model-lifecycle-action",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Find and audit repository AI model keys against UsageTap lifecycle decisions.",
   "license": "MIT",
