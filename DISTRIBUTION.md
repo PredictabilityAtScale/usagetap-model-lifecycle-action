@@ -4,20 +4,20 @@
 
 Create one dedicated public repository:
 
-`github.com/usagetap/model-lifecycle-action`
+`github.com/PredictabilityAtScale/usagetap-model-lifecycle-action`
 
 Keep the root `action.yml`, implementation, tests, license, and documentation in that repository. A separate repository gives the action an independent release history and is the structure GitHub expects for Marketplace publication.
 
 The action is usable as soon as the repository is public; Marketplace is a discovery channel, not a technical requirement.
 
 ```yaml
-- uses: usagetap/model-lifecycle-action@v1
+- uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
 ```
 
 Security-sensitive teams can pin the immutable commit SHA instead:
 
 ```yaml
-- uses: usagetap/model-lifecycle-action@FULL_COMMIT_SHA # v1.0.0
+- uses: PredictabilityAtScale/usagetap-model-lifecycle-action@FULL_COMMIT_SHA # v1.0.0
 ```
 
 ## Release model

@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: YOUR_ORG/usagetap-model-lifecycle-action@v1
+      - uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
         with:
           paths: |
             src
@@ -95,9 +95,7 @@ The action uses GitHub's Node 24 runtime and Node built-ins only, so there is no
 
 ## Before publishing
 
-1. Move this directory into a public GitHub repository.
-2. Replace `YOUR_ORG` in the sample workflow.
-3. Run the tests on Ubuntu, Windows, and macOS.
-4. Add integration fixtures for every provider/model format you officially support.
-5. Tag an immutable release such as `v1.0.0`, then move a `v1` major tag to that commit.
-6. Publish the action in GitHub Marketplace after validating `action.yml` and the README.
+1. Confirm the GitHub test matrix passes on Ubuntu, Windows, and macOS.
+2. Add integration fixtures for every provider/model format you officially support.
+3. Tag an immutable release such as `v1.0.0`, then move a `v1` major tag to that commit.
+4. Publish the action in GitHub Marketplace after validating `action.yml` and the README.

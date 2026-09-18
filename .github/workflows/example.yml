@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Check model lifecycle
-        uses: YOUR_ORG/usagetap-model-lifecycle-action@v1
+        uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
         with:
           paths: |
             src
