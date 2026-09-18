@@ -1,5 +1,9 @@
 # UsageTap Model Lifecycle Check
 
+[![Test action](https://github.com/PredictabilityAtScale/usagetap-model-lifecycle-action/actions/workflows/ci.yml/badge.svg)](https://github.com/PredictabilityAtScale/usagetap-model-lifecycle-action/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/PredictabilityAtScale/usagetap-model-lifecycle-action?display_name=tag&sort=semver)](https://github.com/PredictabilityAtScale/usagetap-model-lifecycle-action/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A dependency-free GitHub Action that finds AI model keys in a repository, audits each unique key against UsageTap's public Model Alternatives API, and annotates files that need attention. It is designed to answer two CI questions: **which models does this repository use, and which of them require lifecycle review or replacement?**
 
 ## Why this shape
