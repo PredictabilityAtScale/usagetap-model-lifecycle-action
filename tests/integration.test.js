@@ -59,9 +59,9 @@ test("annotates a deprecated key, writes outputs, and fails the job", async (con
     GITHUB_WORKSPACE: workspace,
     GITHUB_OUTPUT: outputFile,
     GITHUB_STEP_SUMMARY: summaryFile,
-    INPUT_API_BASE_URL: `http://127.0.0.1:${address.port}`,
+    "INPUT_API-BASE-URL": `http://127.0.0.1:${address.port}`,
     INPUT_PATHS: ".",
-    INPUT_FAIL_ON: "replace",
+    "INPUT_FAIL-ON": "replace",
   });
 
   assert.equal(result.code, 1, result.stderr);
@@ -102,10 +102,10 @@ test("reports unknown and degraded decisions according to policy", async (contex
     GITHUB_WORKSPACE: workspace,
     GITHUB_OUTPUT: outputFile,
     GITHUB_STEP_SUMMARY: summaryFile,
-    INPUT_API_BASE_URL: `http://127.0.0.1:${address.port}`,
+    "INPUT_API-BASE-URL": `http://127.0.0.1:${address.port}`,
     INPUT_PATHS: ".",
-    INPUT_UNKNOWN_POLICY: "warn",
-    INPUT_API_ERROR_POLICY: "error",
+    "INPUT_UNKNOWN-POLICY": "warn",
+    "INPUT_API-ERROR-POLICY": "error",
   });
 
   assert.equal(result.code, 1, result.stderr);
@@ -152,9 +152,9 @@ test("audits declared models and reports lifecycle waivers without hiding decisi
     GITHUB_WORKSPACE: workspace,
     GITHUB_OUTPUT: outputFile,
     GITHUB_STEP_SUMMARY: summaryFile,
-    INPUT_API_BASE_URL: `http://127.0.0.1:${address.port}`,
+    "INPUT_API-BASE-URL": `http://127.0.0.1:${address.port}`,
     INPUT_PATHS: ".",
-    INPUT_FAIL_ON: "replace",
+    "INPUT_FAIL-ON": "replace",
   });
 
   assert.equal(result.code, 0, result.stderr);

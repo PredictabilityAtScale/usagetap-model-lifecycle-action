@@ -6,7 +6,7 @@ const { normalizeCandidate, scanRepository, splitList } = require("./scanner.js"
 const { lookupModels } = require("./usagetap.js");
 
 function input(name, fallback = "") {
-  const key = `INPUT_${name.replaceAll("-", "_").toUpperCase()}`;
+  const key = `INPUT_${name.replaceAll(" ", "_").toUpperCase()}`;
   return process.env[key] === undefined ? fallback : process.env[key].trim();
 }
 
