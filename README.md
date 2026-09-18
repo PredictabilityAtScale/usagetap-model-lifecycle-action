@@ -137,6 +137,56 @@ with:
 
 Azure and other arbitrary deployment aliases require explicit declarations. Keep those declarations under review: the action audits the provider/model key you supply but cannot prove which model an alias currently targets.
 
+## Runtime-selected models
+
+A repository scan cannot discover a model key loaded from a database, remote configuration, feature flag, or user-facing model chooser. If the application has a finite allowlist, also put every allowed provider-qualified key in `models.include` so pull-request and scheduled checks cover it. For an open-ended chooser, check each key through the public UsageTap API from a backend or provider adapter when options are loaded and again before a selection is persisted or used.
+
+The endpoint is a public `GET`; it requires no UsageTap account, API key, SDK, or request body. Supply model keys in `provider/model` form and URL-encode the provider and model path segments separately:
+
+```bash
+curl --fail-with-body \
+  'https://api.usagetap.com/v1/model-alternatives/openai/gpt-4-turbo?purpose=retirement&response=light'
+```
+
+For example, a service that backs a dropdown can use a small raw HTTP helper:
+
+```js
+async function checkRuntimeModel(modelKey) {
+  const parts = modelKey.split("/");
+  if (parts.length < 2 || parts.some((part) => !part)) {
+    throw new TypeError("modelKey must use provider/model form");
+  }
+
+  const path = parts.map(encodeURIComponent).join("/");
+  const response = await fetch(
+    `https://api.usagetap.com/v1/model-alternatives/${path}?purpose=retirement&response=light`,
+    {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(2_000),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Lifecycle lookup failed with HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+const decision = await checkRuntimeModel(selectedModelKey);
+```
+
+Apply application policy after the lookup:
+
+- `KEEP` means the exact key has a source-backed `ACTIVE` lifecycle record.
+- `REVIEW` or lifecycle `UNKNOWN` requires operator review; neither means the model is known to be active.
+- `REPLACE` means the key is deprecated or retired. Surface a migration warning and treat `recommendedModelKey`, when present, as a candidate rather than silently changing the user's selection.
+- If `degraded` is `true`, a field is missing, the request times out, or the API fails, preserve the current selection and surface the uncertainty. Never interpret failure as approval.
+- `keyGuidance.preferredModelKey` is a provider-verified alias for the same model; it is distinct from the upgrade or migration candidate in `recommendedModelKey`.
+
+Do not poll the full API on every inference request. Use `response=light`, cache the decision through `validUntil` (and use `ETag`/`If-None-Match` where practical), and log `decisionId` with any warning or migration action. When checking a large chooser list, bound concurrency, stay within the shared limit of 50 requests per second with a burst of 100, and honor `Retry-After` on HTTP `429`. The API returns advice only—it never changes application configuration or retries a request.
+
+See the [interactive API examples](https://usagetap.com/model-lifecycle#code) and the [complete request and response reference](https://usagetap.com/docs/MODEL_ALTERNATIVES_API) for policy parameters, full responses, fallback guardrails, caching, and structured errors.
+
 ## Zero-model coverage
 
 Every zero-model run emits a warning annotation and a prominent job-summary callout, even when `minimum-models` is `0`. Remediate zero coverage by broadening `paths`, removing an over-broad `exclude`, or declaring runtime/deployment aliases in `models.include` or `models`.
